@@ -227,11 +227,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; le
 .ch.cur { background: var(--accent-soft); box-shadow: inset 0 -3px 0 var(--accent); }
 .ch.cur.miss { background: var(--bad-soft); box-shadow: inset 0 -3px 0 var(--bad); }
 .ch.sp.bad { box-shadow: inset 0 -3px 0 var(--bad); }
-.start-hint {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 16px;
-  background: color-mix(in srgb, var(--surface) 70%, transparent); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  border-radius: 22px; font-size: 16px; color: var(--muted); pointer-events: none;
-}
+.start-hint { text-align: center; padding: 10px 16px; border-radius: 14px; background: var(--fill); font-size: 15px; color: var(--muted); }
 .start-hint b { color: var(--fg); font-weight: 600; }
 .hands { display: flex; justify-content: center; align-items: flex-end; gap: clamp(14px, 4vw, 48px); }
 .hand { display: flex; align-items: flex-end; gap: 5px; }
@@ -274,6 +270,11 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; le
 .tile b small { font-size: 0.6em; color: var(--muted); font-weight: 600; }
 #startExtra { font-weight: 600; color: var(--accent); }
 @media (max-width: 520px) { .chp .bar { display: none; } .cht span { display: none; } }
+.syncrow { flex-wrap: wrap; }
+.syncrow input { flex: 1 1 220px; min-width: 0; font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--fill); color: var(--fg); }
+.syncrow input:focus-visible { outline: 4px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.note a { color: var(--accent); }
+.err { color: var(--bad); }
 #sink { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; pointer-events: none; }
 @media (max-width: 820px) {
   .home { grid-template-columns: minmax(0, 1fr); }
@@ -305,9 +306,9 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; le
       </div>
     </div>
     <div class="progress"><i id="pBar"></i></div>
+    <div class="start-hint" id="startHint"><div>Finger auf die Grundreihe: <b>A S D F</b> links, <b>J K L Ö</b> rechts (F und J haben Erhebungen). Tippe das erste Zeichen, um zu starten. <span id="startExtra"></span></div></div>
     <div class="typebox" id="typebox">
       <div class="textwin"><div class="text-inner" id="text"></div></div>
-      <div class="start-hint" id="startHint"><div>Finger auf die Grundreihe legen: <b>A S D F</b> links, <b>J K L Ö</b> rechts.<br>F und J haben kleine Erhebungen. Tippe das erste Zeichen, um zu starten.<br><span id="startExtra"></span></div></div>
     </div>
     <div class="result panel" id="result" hidden></div>
     <div class="fhint" id="fhint"></div>
