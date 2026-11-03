@@ -11,7 +11,15 @@ Eine kleine, private Web-App zum Lernen des 10-Finger-Schreibens auf deutschem Q
 - Fehlerkarte und „Schwache Tasten üben“ mit Übungen aus den eigenen Fehlern
 - Läuft offline und lässt sich wie eine App installieren
 
-Der Fortschritt liegt im Browser-Speicher des jeweiligen Geräts (iPad und Mac getrennt).
+Der Fortschritt liegt im Browser-Speicher des Geräts. Optional synchronisiert die App iPad und Mac über ein privates Gist im eigenen GitHub-Konto.
+
+## Sync zwischen iPad und Mac
+
+1. Bei GitHub einen Zugangsschlüssel mit dem Recht `gist` erstellen: https://github.com/settings/tokens/new?scopes=gist&description=Tastenpfad
+2. In der App unter „Sync zwischen iPad und Mac“ eintragen, auf beiden Geräten.
+3. Die App legt beim ersten Mal ein privates Gist `tastenpfad-sync.json` an und gleicht nach jeder Übung und beim Öffnen ab.
+
+Zusammengeführt wird so: pro Lektion die besten Werte, der Verlauf beider Geräte, die Tastenstatistik je Gerät getrennt und in der Fehlerkarte zusammengezählt. Der Schlüssel bleibt nur im Browser des jeweiligen Geräts.
 
 ## Installieren
 

@@ -196,14 +196,22 @@ let scope = { set: new Set([' ']), shift: false };
 const snap = () => ({ set: new Set(scope.set), shift: scope.shift });
 const unlock = (chars) => { for (const c of chars) scope.set.add(c); };
 let chapter = null;
+const usedIds = new Set();
+function lessonId(ck, title, kind) {
+  const base = (ck + '-' + title + '-' + kind).toLowerCase().replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss').replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+  let id = base, n = 2; while (usedIds.has(id)) id = base + '-' + n++;
+  usedIds.add(id); return id;
+}
 function addChapter(key, title, blurb) { chapter = { key, title, blurb, lessons: [] }; CHAPTERS.push(chapter); }
 function add(title, kind, gen, opts = {}) {
-  const L = { id: `${chapter.key}-${chapter.lessons.length + 1}`, chapter, title, kind, gen, target: opts.target || 60, minAcc: opts.minAcc || 90, blind: !!opts.blind, time: opts.time || 0, keys: opts.keys || '', note: opts.note || '' };
+  const L = { id: lessonId(chapter.key, title, kind), chapter, title, kind, gen, target: opts.target || 60, minAcc: opts.minAcc || 90, blind: !!opts.blind, time: opts.time || 0, keys: opts.keys || '', note: opts.note || '' };
   L.idx = LESSONS.length; LESSONS.push(L); chapter.lessons.push(L);
   return L;
 }
 const keyTitle = (keys) => { const u = [...keys].map((c) => ({ ',': 'Komma', '.': 'Punkt', '-': 'Bindestrich', 'ß': 'ß' }[c] || c.toUpperCase())); return u.length === 1 ? u[0] : u.slice(0, -1).join(', ') + ' und ' + u[u.length - 1]; };
 
+let recentKeys = [];
+let stageCount = 0;
 function letterStage(keys, base) {
   unlock(keys);
   const sc = snap(); const k = [...keys]; const t = keyTitle(keys);
@@ -212,19 +220,28 @@ function letterStage(keys, base) {
   add(t, 'Einführung', () => genText({ scope: sc, focus: k, drill: k, len: 110, pseudoOnly: true }), { target: base, keys });
   add(t, 'Kombinationen', () => genText({ scope: sc, focus: k, pseudoOnly: true, len: 150, deco }), { target: base, keys });
   add(t, 'Wörter', () => genText({ scope: sc, focus: fl.length ? fl : k, share: 0.85, len: 170, deco }), { target: base + 5, keys });
-  add(t, 'Gemischt', () => genText({ scope: sc, focus: k, share: 0.4, len: 190, deco, decoRate: 0.2 }), { target: base + 5, keys });
   add(t, 'Genauigkeit', () => genText({ scope: sc, focus: k, share: 0.6, len: 150, deco }), { target: base, minAcc: 96, keys, note: 'Bestanden ab 96 % Genauigkeit' });
-  add(t, 'Tempo', () => genText({ scope: sc, focus: k, share: 0.5, len: 170, deco, decoRate: 0.2 }), { target: Math.round(base * 1.25), keys, note: 'Höheres Tempoziel' });
   add(t, 'Blind', () => genText({ scope: sc, focus: k, share: 0.6, len: 170, deco, decoRate: 0.2 }), { target: base, blind: true, keys, note: 'Ohne Tastatur-Anzeige' });
+  // Wiederholungen: neue Tasten zusammen mit den zuletzt gelernten
+  recentKeys = recentKeys.concat(k).slice(-8);
+  const rk = recentKeys.slice();
+  stageCount++;
+  if (stageCount > 1) {
+    add(`Wiederholung bis ${t}`, 'Wiederholung', () => genText({ scope: sc, focus: rk, share: 0.55, len: 200, deco, decoRate: 0.15 }), { target: base + 5, keys: rk.filter(isLetter).join('') });
+    if (stageCount % 2 === 0) add(`Wiederholung bis ${t}`, 'Tempo', () => genText({ scope: sc, focus: rk, share: 0.4, len: 190, deco, decoRate: 0.15 }), { target: Math.round(base * 1.25), keys: rk.filter(isLetter).join(''), note: 'Höheres Tempoziel' });
+  }
 }
 function chapterReview(name, base, leftRight = true) {
   const sc = snap();
   const ls = [...sc.set].filter(isLetter);
-  add(`Wiederholung ${name}`, 'Wiederholung', () => genText({ scope: sc, focus: ls, share: 0.3, len: 200 }), { target: base });
+  add(`Wiederholung ${name}`, 'Gemischt', () => genText({ scope: sc, focus: ls, share: 0.3, len: 200 }), { target: base });
   if (leftRight) {
     add(`Wiederholung ${name}`, 'Linke Hand', () => genText({ scope: sc, focus: ls.filter((c) => LEFT_LETTERS.has(c)), share: 0.85, len: 200 }), { target: base });
     add(`Wiederholung ${name}`, 'Rechte Hand', () => genText({ scope: sc, focus: ls.filter((c) => RIGHT_LETTERS.has(c)), share: 0.85, len: 200 }), { target: base });
   }
+  add(`Wiederholung ${name}`, 'Genauigkeit', () => genText({ scope: sc, focus: ls, share: 0.3, len: 180 }), { target: base, minAcc: 96, note: 'Bestanden ab 96 % Genauigkeit' });
+  add(`Wiederholung ${name}`, 'Tempo', () => genText({ scope: sc, focus: ls, share: 0.3, len: 200 }), { target: Math.round(base * 1.25), note: 'Höheres Tempoziel' });
+  add(`Wiederholung ${name}`, 'Blind', () => genText({ scope: sc, focus: ls, share: 0.3, len: 200 }), { target: base, blind: true, note: 'Ohne Tastatur-Anzeige' });
   add(`Kapiteltest ${name}`, 'Test', () => genText({ scope: sc, focus: ls, share: 0.3, len: 300 }), { target: base + 5, minAcc: 94, note: 'Bestanden ab 94 % Genauigkeit' });
 }
 
@@ -422,7 +439,7 @@ addChapter('tempo', 'Tempo und Ausdauer', 'Läufe auf Zeit. Gezählt wird, was d
 
 /* ---------- Speicher ---------- */
 const STORE = 'tastenpfad.v2';
-const fresh = () => ({ v: 2, lessons: {}, keys: {}, history: [], settings: { block: true, keyboard: true }, open: {} });
+const fresh = () => ({ v: 2, lessons: {}, keys: {}, others: {}, history: [], settings: { block: true, keyboard: true }, open: {} });
 let state = (() => {
   try { const s = JSON.parse(localStorage.getItem(STORE)); if (s && s.v === 2) return Object.assign(fresh(), s); } catch (e) {}
   const st = fresh();
@@ -430,6 +447,33 @@ let state = (() => {
   return st;
 })();
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} };
+// Fortschritt aus der Version mit nummerierten Lektions-IDs übernehmen
+(function migrateIds() {
+  if (state.idsV === 3) return;
+  const old = state.lessons; const out = {};
+  const OLD_KINDS = ['Einführung', 'Kombinationen', 'Wörter', 'Gemischt', 'Genauigkeit', 'Tempo', 'Blind'];
+  const OLD_REV = ['Gemischt', 'Linke Hand', 'Rechte Hand', 'Test'];
+  const STAGES = { grund: 5, oben: 6, unten: 5 };
+  for (const [id, rec] of Object.entries(old)) {
+    const m = /^([a-z]+)-(\d+)$/.exec(id);
+    if (!m) { out[id] = rec; continue; }
+    const ch = CHAPTERS.find((c) => c.key === m[1]); if (!ch) continue;
+    const i = +m[2] - 1;
+    let L = null;
+    if (STAGES[m[1]]) {
+      const stage = Math.floor(i / 7), kind = OLD_KINDS[i % 7];
+      if (stage < STAGES[m[1]]) {
+        const firstOfStage = ch.lessons.filter((l) => l.kind === 'Einführung')[stage];
+        if (firstOfStage) L = ch.lessons.find((l) => l.title === firstOfStage.title && l.kind === kind);
+      } else {
+        const kind2 = OLD_REV[i - STAGES[m[1]] * 7];
+        L = ch.lessons.find((l) => (kind2 === 'Test' ? l.kind === 'Test' : l.title.startsWith('Wiederholung ') && !l.title.includes(' bis ') && l.kind === kind2));
+      }
+    } else L = ch.lessons[i];
+    if (L) out[L.id] = rec;
+  }
+  state.lessons = out; state.idsV = 3; save();
+})();
 const keyOf = (c) => (c === ' ' ? ' ' : c.toLowerCase());
 const ks = (c) => (state.keys[c] ||= { n: 0, err: 0, t: 0, tn: 0 });
 const passed = (L) => state.lessons[L.id]?.stars >= 1;
@@ -445,12 +489,21 @@ function reachedScope() {
   if (CHAPTERS.indexOf(L.chapter) >= CHAPTERS.findIndex((c) => c.key === 'finger')) return FULL;
   return { set, shift };
 }
+// Tastenstatistik aller Geräte: eigene plus die per Sync geladenen
+function allKeys() {
+  const out = {};
+  const addAll = (keys) => { for (const [c, s] of Object.entries(keys || {})) { const o = (out[c] ||= { n: 0, err: 0, t: 0, tn: 0 }); o.n += s.n; o.err += s.err; o.t += s.t; o.tn += s.tn; } };
+  addAll(state.keys);
+  for (const d of Object.values(state.others || {})) addAll(d.keys);
+  return out;
+}
 function keyScores() {
+  const KEYS = allKeys();
   let tsum = 0, tn = 0;
-  for (const s of Object.values(state.keys)) { tsum += s.t; tn += s.tn; }
+  for (const s of Object.values(KEYS)) { tsum += s.t; tn += s.tn; }
   const avg = tn ? tsum / tn : 0;
   const arr = [];
-  for (const [c, s] of Object.entries(state.keys)) {
+  for (const [c, s] of Object.entries(KEYS)) {
     if (c === ' ' || s.n < 6) continue;
     const er = Math.min(1, s.err / s.n);
     const sl = avg && s.tn ? (s.t / s.tn) / avg : 1;
@@ -458,6 +511,101 @@ function keyScores() {
   }
   return arr.sort((a, b) => b.score - a.score);
 }
+
+
+/* ---------- Sync über ein privates GitHub-Gist ---------- */
+const SYNC_STORE = 'tastenpfad.sync';
+const SYNC_FILE = 'tastenpfad-sync.json';
+let sync = (() => { try { return JSON.parse(localStorage.getItem(SYNC_STORE)) || {}; } catch (e) { return {}; } })();
+if (!sync.device) sync.device = Math.random().toString(36).slice(2, 10);
+if (!sync.name) sync.name = /iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 ? 'iPad' : /Mac/.test(navigator.platform || navigator.userAgent) ? 'Mac' : 'Gerät';
+const saveSync = () => { try { localStorage.setItem(SYNC_STORE, JSON.stringify(sync)); } catch (e) {} };
+saveSync();
+let syncBusy = false, syncMsg = '';
+async function gh(path, opts = {}) {
+  const r = await fetch('https://api.github.com' + path, Object.assign({}, opts, { headers: { Authorization: 'Bearer ' + sync.token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' } }));
+  if (r.status === 401) throw new Error('Der Zugangsschlüssel wurde abgelehnt. Prüfe ihn oder erstelle einen neuen mit dem Recht „gist“.');
+  if (r.status === 403 || r.status === 404) throw new Error('Kein Zugriff auf Gists. Der Schlüssel braucht das Recht „gist“.');
+  if (!r.ok) throw new Error('GitHub antwortet mit Fehler ' + r.status + '. Versuch es gleich noch einmal.');
+  return r.json();
+}
+function exportState() {
+  const others = Object.assign({}, state.others || {});
+  others[sync.device] = { name: sync.name, keys: state.keys, updated: Date.now() };
+  return { app: 'tastenpfad', v: 1, lessons: state.lessons, history: state.history, devices: others };
+}
+function mergeRemote(remote) {
+  if (!remote || remote.app !== 'tastenpfad') return;
+  for (const [id, r] of Object.entries(remote.lessons || {})) {
+    const l = (state.lessons[id] ||= { stars: 0, bestApm: 0, bestAcc: 0, runs: 0 });
+    l.stars = Math.max(l.stars, r.stars || 0); l.bestApm = Math.max(l.bestApm, r.bestApm || 0); l.bestAcc = Math.max(l.bestAcc, r.bestAcc || 0); l.runs = Math.max(l.runs, r.runs || 0);
+  }
+  const seen = new Set(state.history.map((h) => h.d + '|' + h.l));
+  for (const h of remote.history || []) if (!seen.has(h.d + '|' + h.l)) state.history.push(h);
+  state.history.sort((a, b) => a.d - b.d);
+  if (state.history.length > 500) state.history = state.history.slice(-500);
+  state.others = {};
+  for (const [dev, d] of Object.entries(remote.devices || {})) if (dev !== sync.device) state.others[dev] = d;
+}
+async function syncNow(manual) {
+  if (!sync.token || syncBusy) return;
+  syncBusy = true; syncMsg = 'Synchronisiere …'; refreshSyncUi();
+  try {
+    if (!sync.gistId) {
+      const list = await gh('/gists?per_page=100');
+      const g = list.find((x) => x.files && x.files[SYNC_FILE]);
+      if (g) sync.gistId = g.id;
+      else { const c = await gh('/gists', { method: 'POST', body: JSON.stringify({ description: 'Tastenpfad: Lernfortschritt (Sync)', public: false, files: { [SYNC_FILE]: { content: JSON.stringify(exportState()) } } }) }); sync.gistId = c.id; }
+      saveSync();
+    }
+    const g = await gh('/gists/' + sync.gistId);
+    const f = g.files && g.files[SYNC_FILE];
+    if (f) {
+      const text = f.truncated ? await (await fetch(f.raw_url)).text() : f.content;
+      try { mergeRemote(JSON.parse(text)); } catch (e) {}
+    }
+    save();
+    await gh('/gists/' + sync.gistId, { method: 'PATCH', body: JSON.stringify({ files: { [SYNC_FILE]: { content: JSON.stringify(exportState()) } } }) });
+    sync.last = Date.now(); sync.error = ''; saveSync();
+    syncMsg = '';
+    if (view === 'home') renderHome();
+  } catch (e) {
+    sync.error = e.message || 'Keine Verbindung. Der Sync läuft beim nächsten Mal wieder.'; saveSync();
+    if (e instanceof TypeError) sync.error = 'Keine Verbindung zu GitHub. Der Sync läuft wieder, sobald du online bist.';
+    syncMsg = '';
+  } finally { syncBusy = false; refreshSyncUi(); }
+}
+let syncTimer = null;
+const syncSoon = () => { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 1500); };
+function ago(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'gerade eben'; if (m < 60) return `vor ${m} Min.`; const h = Math.round(m / 60); if (h < 24) return `vor ${h} Std.`; return new Date(t).toLocaleDateString('de-DE');
+}
+function syncHtml() {
+  if (!sync.token) return `
+    <div class="label">Sync zwischen iPad und Mac</div>
+    <p class="note" style="margin:0">Dein Fortschritt wird in einem privaten Gist in deinem GitHub-Konto gespeichert. Dafür brauchst du einmal einen Zugangsschlüssel mit dem Recht „gist“: <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=Tastenpfad" target="_blank" rel="noopener">Schlüssel bei GitHub erstellen</a>. Trag ihn auf iPad und Mac ein, beide finden dann dasselbe Gist.</p>
+    <div class="row syncrow"><input type="password" id="syncToken" placeholder="ghp_… oder github_pat_…" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn primary" id="syncConnect">Verbinden</button></div>
+    ${sync.error ? `<p class="note err" style="margin:0">${esc(sync.error)}</p>` : ''}`;
+  const others = Object.values(state.others || {}).map((d) => d.name).filter(Boolean);
+  return `
+    <div class="label">Sync zwischen iPad und Mac</div>
+    <p class="note" style="margin:0" id="syncStatus">${syncStatusText(others)}</p>
+    <div class="row"><button class="btn" id="syncNowBtn">Jetzt synchronisieren</button><button class="btn danger" id="syncOff">Trennen</button></div>`;
+}
+function syncStatusText(others = Object.values(state.others || {}).map((d) => d.name).filter(Boolean)) {
+  if (syncMsg) return esc(syncMsg);
+  if (sync.error) return `<span class="err">${esc(sync.error)}</span>`;
+  return `Verbunden als <b>${esc(sync.name)}</b>. ${sync.last ? 'Zuletzt synchronisiert ' + ago(sync.last) + '.' : ''}${others.length ? ' Weitere Geräte: ' + esc(uniq(others).join(', ')) + '.' : ''}`;
+}
+function refreshSyncUi() { const el = $('#syncStatus'); if (el) el.innerHTML = syncStatusText(); }
+function bindSyncUi() {
+  const c = $('#syncConnect');
+  if (c) c.onclick = () => { const v = $('#syncToken').value.trim(); if (!v) return; sync.token = v; sync.error = ''; saveSync(); renderHome(); syncNow(true); };
+  const n = $('#syncNowBtn'); if (n) n.onclick = () => syncNow(true);
+  const o = $('#syncOff'); if (o) o.onclick = () => { delete sync.token; delete sync.gistId; delete sync.last; sync.error = ''; saveSync(); renderHome(); };
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && view === 'home') syncNow(); });
 
 /* ---------- Übersicht ---------- */
 let view = 'home';
@@ -529,9 +677,10 @@ function renderHome() {
         <div class="label">Einstellungen</div>
         <label class="toggle"><input type="checkbox" id="setBlock" ${state.settings.block ? 'checked' : ''}> Bei Fehler anhalten, bis die richtige Taste kommt</label>
         <label class="toggle"><input type="checkbox" id="setKb" ${state.settings.keyboard ? 'checked' : ''}> Tastatur und Hände beim Üben anzeigen</label>
-        <p class="note" style="margin:0">Am iPad brauchst du eine <b>Hardware-Tastatur</b> (z. B. Magic Keyboard). Dein Fortschritt wird auf diesem Gerät gespeichert, iPad und Mac sind also getrennt.</p>
+        <p class="note" style="margin:0">Am iPad brauchst du eine <b>Hardware-Tastatur</b> (z. B. Magic Keyboard). Ohne Sync bleibt der Fortschritt auf diesem Gerät.</p>
         <div class="row" id="resetRow"><button class="btn danger" id="reset">Fortschritt löschen</button></div>
       </section>
+      <section class="panel settings" id="syncPanel">${syncHtml()}</section>
     </div>
   </div>`;
 
@@ -543,9 +692,10 @@ function renderHome() {
   document.querySelectorAll('.chapter').forEach((d) => d.addEventListener('toggle', () => { state.open[d.dataset.ch] = d.open; save(); }));
   $('#setBlock').onchange = (e) => { state.settings.block = e.target.checked; save(); };
   $('#setKb').onchange = (e) => { state.settings.keyboard = e.target.checked; save(); };
+  bindSyncUi();
   $('#reset').onclick = () => {
     $('#resetRow').innerHTML = '<span class="note" style="align-self:center">Alle Lektionen und Statistiken löschen?</span><button class="btn danger" id="resetYes">Ja, löschen</button><button class="btn" id="resetNo">Abbrechen</button>';
-    $('#resetYes').onclick = () => { state = fresh(); save(); renderHome(); };
+    $('#resetYes').onclick = () => { state = fresh(); state.idsV = 3; save(); renderHome(); };
     $('#resetNo').onclick = renderHome;
   };
   const recEl = document.querySelector('.lesson.rec');
@@ -700,7 +850,7 @@ function finish() {
   }
   state.history.push({ d: Date.now(), l: L ? L.id : 'weak', apm, acc, ms: Math.round(ms) });
   if (state.history.length > 500) state.history = state.history.slice(-500);
-  save();
+  save(); syncSoon();
 
   const missed = {};
   P.errPos.forEach((i) => { const c = P.text[i]; missed[c] = (missed[c] || 0) + 1; });
@@ -764,6 +914,7 @@ $('#typebox').addEventListener('pointerdown', focusSink);
 $('#homeBtn').onclick = () => { clearInterval(ticker); renderHome(); };
 window.addEventListener('resize', () => { if (view === 'practice' && P && !P.done) scrollText(); });
 
-window.TP = { LESSONS, CHAPTERS, CHAR, genText, fitsText, FULL };
+window.TP = { LESSONS, CHAPTERS, CHAR, genText, fitsText, FULL, mergeRemote, exportState };
 renderHome();
+syncNow();
 })();
