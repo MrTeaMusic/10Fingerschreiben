@@ -1,6 +1,6 @@
 // Offline-Cache für Tastenpfad. Bei Änderungen an der App VERSION erhöhen.
-const VERSION = 'tastenpfad-v2';
-const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png'];
+const VERSION = 'tastenpfad-v3';
+const CORE = ['./', './index.html', './manifest.webmanifest', './content.js', './app.js', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
